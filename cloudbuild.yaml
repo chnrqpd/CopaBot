@@ -1,0 +1,8 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/copa-bot-443611/copa-bot', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/copa-bot-443611/copa-bot']
+
+images:
+  - 'gcr.io/copa-bot-443611/copa-bot'

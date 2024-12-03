@@ -53,5 +53,15 @@ module.exports = {
    },
 };
 
+const http = require('http');
+const PORT = process.env.PORT || 8080;
+
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('O bot está rodando!\n');
+}).listen(PORT, () => {
+    console.log(`Servidor HTTP iniciado na porta ${PORT}`);
+});
+
 connectDB();
 client.login(token);
