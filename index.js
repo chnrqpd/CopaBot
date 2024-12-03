@@ -2,9 +2,13 @@ require('dotenv').config()
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Events, GatewayIntentBits, Collection, ClientApplication } = require ('discord.js');
+const connectDB = require('./db');
+const executeCommand = require('./utils/commandExecutor');
+const logger = require('./config/logger');
+
 const token = process.env.DISCORD_TOKEN;
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 client.commands = new Collection();
 
 const foldersPath = path.join(__dirname, 'commands');
@@ -37,4 +41,17 @@ for (const file of eventFiles) {
     }
 }
 
+client.on('error', error => {
+  logger.error('Erro no cliente Discord:', error);
+});
+
+module.exports = {
+   name: Events.InteractionCreate,
+   async execute(interaction) {
+       if (!interaction.isChatInputCommand()) return;
+       await executeCommand(interaction);
+   },
+};
+
+connectDB();
 client.login(token);

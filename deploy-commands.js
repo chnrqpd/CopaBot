@@ -34,7 +34,7 @@ const rest = new REST().setToken(token);
             Routes.applicationGuildCommands(clientId, guildId),
             { body: commands },
         );
-        console.log(`Succesfully reloaded ${data.length} applicatin (/) commands.`);
+        console.log(`Succesfully reloaded ${data.length} application (/) commands.`);
     } catch (error) {
         console.error(error);
     }
