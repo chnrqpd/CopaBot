@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Moda
 const { v4: uuidv4 } = require('uuid');
 const Session = require('../../models/Session');
 const logger = require('../../config/logger');
+const PlayerStats = require('../../models/PlayerStats');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -54,6 +55,31 @@ module.exports = {
                             .setCustomId('add_custom_name')
                             .setLabel('➕ Adicionar Nome')
                             .setStyle(ButtonStyle.Primary)
+                    );
+            };
+
+            const createTeamEmbed = (team1, team2) => {
+                return new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle('🏆 Times Sorteados 🏆')
+                    .addFields(
+                        { name: 'Time 1', value: team1.map(p => p.name).join('\n'), inline: true },
+                        { name: 'Time 2', value: team2.map(p => p.name).join('\n'), inline: true }
+                    )
+                    .setFooter({ text: `ID da Sessão: ${sessionId}` });
+            };
+
+            const createWinnerButtons = () => {
+                return new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('winner_team1')
+                            .setLabel('Time 1 Venceu')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId('winner_team2')
+                            .setLabel('Time 2 Venceu')
+                            .setStyle(ButtonStyle.Success)
                     );
             };
 
@@ -164,20 +190,106 @@ module.exports = {
                         const team1 = shuffled.slice(0, 5);
                         const team2 = shuffled.slice(5, 10);
 
-                        const teamEmbed = new EmbedBuilder()
-                            .setColor('#2ecc71')
-                            .setTitle('🏆 Times Sorteados 🏆')
-                            .addFields(
-                                { name: 'Time 1', value: team1.map(p => p.name).join('\n'), inline: true },
-                                { name: 'Time 2', value: team2.map(p => p.name).join('\n'), inline: true }
-                            )
-                            .setFooter({ text: `ID da Sessão: ${sessionId}` });
+                        const teamEmbed = createTeamEmbed(team1, team2);
+                        const winnerButtons = createWinnerButtons();
 
-                        await interaction.followUp({ embeds: [teamEmbed] });
+                        const teamMessage = await interaction.followUp({ 
+                            embeds: [teamEmbed],
+                            components: [winnerButtons]
+                        });
+
+                        const winnerCollector = teamMessage.createMessageComponentCollector({
+                            filter: i => i.customId.startsWith('winner_'),
+                            time: 86400000  // 24 horas
+                        });
+
+                        winnerCollector.on('collect', async (buttonInteraction) => {
+                            try {
+                                if (!buttonInteraction.member.permissions.has('MANAGE_MESSAGES')) {
+                                    return buttonInteraction.reply({
+                                        content: 'Você não tem permissão para declarar o vencedor.',
+                                        ephemeral: true
+                                    });
+                                }
+
+                                const winnerTeam = buttonInteraction.customId === 'winner_team1' ? 'time1' : 'time2';
+                                
+                                const session = await Session.findOne({ sessionId });
+                                if (!session || session.winner) {
+                                    return buttonInteraction.reply({
+                                        content: 'Sessão não encontrada ou já finalizada.',
+                                        ephemeral: true
+                                    });
+                                }
+
+                                const winningPlayers = winnerTeam === 'time1' ? team1 : team2;
+                                const losingPlayers = winnerTeam === 'time1' ? team2 : team1;
+
+                                // Atualiza estatísticas dos jogadores vencedores
+                                for (const player of winningPlayers) {
+                                    try {
+                                        const playerStats = await PlayerStats.findOne({ playerId: player.id }) || { totalGames: 0, wins: 0 };
+                                        await PlayerStats.findOneAndUpdate(
+                                            { playerId: player.id },
+                                            {
+                                                playerName: player.name,
+                                                $inc: { totalGames: 1, wins: 1 },
+                                                $set: { winPercentage: ((playerStats.wins + 1) / (playerStats.totalGames + 1)) * 100 }
+                                            },
+                                            { upsert: true, new: true }
+                                        );
+                                    } catch (error) {
+                                        logger.error('Erro ao atualizar estatísticas do vencedor:', { 
+                                            playerId: player.id, 
+                                            error: error.message 
+                                        });
+                                    }
+                                }
+
+                                // Atualiza estatísticas dos jogadores perdedores
+                                for (const player of losingPlayers) {
+                                    try {
+                                        const playerStats = await PlayerStats.findOne({ playerId: player.id }) || { totalGames: 0, losses: 0 };
+                                        await PlayerStats.findOneAndUpdate(
+                                            { playerId: player.id },
+                                            {
+                                                playerName: player.name,
+                                                $inc: { totalGames: 1, losses: 1 },
+                                                $set: { winPercentage: (playerStats.wins || 0) / (playerStats.totalGames + 1) * 100 }
+                                            },
+                                            { upsert: true, new: true }
+                                        );
+                                    } catch (error) {
+                                        logger.error('Erro ao atualizar estatísticas do perdedor:', { 
+                                            playerId: player.id, 
+                                            error: error.message 
+                                        });
+                                    }
+                                }
+
+                                session.winner = winnerTeam;
+                                session.status = 'completed';
+                                await session.save();
+
+                                const updatedEmbed = teamEmbed.setDescription(`🎉 Vencedor: ${winnerTeam === 'time1' ? 'Time 1' : 'Time 2'}`);
+                                await buttonInteraction.update({ 
+                                    embeds: [updatedEmbed],
+                                    components: [] 
+                                });
+
+                                winnerCollector.stop();
+                            } catch (error) {
+                                logger.error('Erro ao registrar vencedor:', { sessionId, error: error.message });
+                                await buttonInteraction.reply({
+                                    content: 'Erro ao processar o resultado.',
+                                    ephemeral: true
+                                });
+                            }
+                        });
 
                         const newSession = new Session({
                             sessionId,
-                            participants: [...team1.map(p => ({id: p.id, name: p.name})), ...team2.map(p => ({id: p.id, name: p.name}))],
+                            participants: [...team1, ...team2],
                             team1,
                             team2
                         });
