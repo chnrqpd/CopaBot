@@ -1,8 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, ButtonStyle, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { v4: uuidv4 } = require('uuid');
 const Session = require('../../models/Session');
-const logger = require('../../config/logger');
 const PlayerStats = require('../../models/PlayerStats');
+const logger = require('../../config/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -200,7 +200,7 @@ module.exports = {
 
                         const winnerCollector = teamMessage.createMessageComponentCollector({
                             filter: i => i.customId.startsWith('winner_'),
-                            time: 86400000  // 24 horas
+                            time: 0 // Sem limite de tempo
                         });
 
                         winnerCollector.on('collect', async (buttonInteraction) => {
@@ -228,11 +228,22 @@ module.exports = {
                                 // Atualiza estatísticas dos jogadores vencedores
                                 for (const player of winningPlayers) {
                                     try {
-                                        const playerStats = await PlayerStats.findOne({ playerId: player.id }) || { totalGames: 0, wins: 0 };
+                                        const playerId = player.id || player.name;
+                                        const playerStats = await PlayerStats.findOne({ 
+                                            $or: [
+                                                { playerId: playerId },
+                                                { playerName: player.name }
+                                            ]
+                                        }) || { totalGames: 0, wins: 0 };
+                                        
                                         await PlayerStats.findOneAndUpdate(
-                                            { playerId: player.id },
+                                            { $or: [
+                                                { playerId: playerId },
+                                                { playerName: player.name }
+                                            ]},
                                             {
                                                 playerName: player.name,
+                                                playerId: playerId,
                                                 $inc: { totalGames: 1, wins: 1 },
                                                 $set: { winPercentage: ((playerStats.wins + 1) / (playerStats.totalGames + 1)) * 100 }
                                             },
@@ -240,7 +251,7 @@ module.exports = {
                                         );
                                     } catch (error) {
                                         logger.error('Erro ao atualizar estatísticas do vencedor:', { 
-                                            playerId: player.id, 
+                                            player: player.name, 
                                             error: error.message 
                                         });
                                     }
@@ -249,11 +260,22 @@ module.exports = {
                                 // Atualiza estatísticas dos jogadores perdedores
                                 for (const player of losingPlayers) {
                                     try {
-                                        const playerStats = await PlayerStats.findOne({ playerId: player.id }) || { totalGames: 0, losses: 0 };
+                                        const playerId = player.id || player.name;
+                                        const playerStats = await PlayerStats.findOne({ 
+                                            $or: [
+                                                { playerId: playerId },
+                                                { playerName: player.name }
+                                            ]
+                                        }) || { totalGames: 0, losses: 0 };
+
                                         await PlayerStats.findOneAndUpdate(
-                                            { playerId: player.id },
+                                            { $or: [
+                                                { playerId: playerId },
+                                                { playerName: player.name }
+                                            ]},
                                             {
                                                 playerName: player.name,
+                                                playerId: playerId,
                                                 $inc: { totalGames: 1, losses: 1 },
                                                 $set: { winPercentage: (playerStats.wins || 0) / (playerStats.totalGames + 1) * 100 }
                                             },
@@ -261,7 +283,7 @@ module.exports = {
                                         );
                                     } catch (error) {
                                         logger.error('Erro ao atualizar estatísticas do perdedor:', { 
-                                            playerId: player.id, 
+                                            player: player.name, 
                                             error: error.message 
                                         });
                                     }
