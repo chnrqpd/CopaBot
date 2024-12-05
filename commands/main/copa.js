@@ -198,6 +198,42 @@ module.exports = {
                             components: [winnerButtons]
                         });
 
+                        const channelTeam1Id = '1040813205615816775'; 
+                        const channelTeam2Id = '1040813244178251848'; 
+
+                        const channelTeam1 = interaction.guild.channels.cache.get(channelTeam1Id);
+                        const channelTeam2 = interaction.guild.channels.cache.get(channelTeam2Id);
+
+                        if (!channelTeam1 || !channelTeam2) {
+                            logger.error('Não foi possível encontrar os canais de voz configurados.');
+                            return interaction.followUp({ 
+                                content: 'Erro: Não foi possível encontrar os canais de voz configurados.', 
+                                ephemeral: true 
+                            });
+                        }
+
+                        for (const player of team1) {
+                            const member = interaction.guild.members.cache.get(player.id);
+                            if (member && member.voice.channel) {
+                                try {
+                                    await member.voice.setChannel(channelTeam1);
+                                } catch (error) {
+                                    logger.error('Erro ao mover jogador para o Time 1:', { member: member.displayName, error: error.message });
+                                }
+                            }
+                        }
+
+                        for (const player of team2) {
+                            const member = interaction.guild.members.cache.get(player.id);
+                            if (member && member.voice.channel) {
+                                try {
+                                    await member.voice.setChannel(channelTeam2);
+                                } catch (error) {
+                                    logger.error('Erro ao mover jogador para o Time 2:', { member: member.displayName, error: error.message });
+                                }
+                            }
+                        }
+
                         const winnerCollector = teamMessage.createMessageComponentCollector({
                             filter: i => i.customId.startsWith('winner_'),
                             time: 0
