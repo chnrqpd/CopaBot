@@ -198,114 +198,41 @@ module.exports = {
                             components: [winnerButtons]
                         });
 
-                        const winnerCollector = teamMessage.createMessageComponentCollector({
-                            filter: i => i.customId.startsWith('winner_'),
-                            time: 0
-                        });
+                        const channelTeam1Id = '1040813205615816775'; 
+                        const channelTeam2Id = '1040813244178251848'; 
 
-                        winnerCollector.on('collect', async (buttonInteraction) => {
-                            try {
-                                if (!buttonInteraction.member.permissions.has('Administrator')) {
-                                    return buttonInteraction.reply({
-                                        content: 'Apenas administradores podem confirmar o vencedor.',
-                                        ephemeral: true
-                                    });
+                        const channelTeam1 = interaction.guild.channels.cache.get(channelTeam1Id);
+                        const channelTeam2 = interaction.guild.channels.cache.get(channelTeam2Id);
+
+                        if (!channelTeam1 || !channelTeam2) {
+                            logger.error('Não foi possível encontrar os canais de voz configurados.');
+                            return interaction.followUp({ 
+                                content: 'Erro: Não foi possível encontrar os canais de voz configurados.', 
+                                ephemeral: true 
+                            });
+                        }
+
+                        for (const player of team1) {
+                            const member = interaction.guild.members.cache.get(player.id);
+                            if (member && member.voice.channel) {
+                                try {
+                                    await member.voice.setChannel(channelTeam1);
+                                } catch (error) {
+                                    logger.error('Erro ao mover jogador para o Time 1:', { member: member.displayName, error: error.message });
                                 }
-
-                                const winnerTeam = buttonInteraction.customId === 'winner_team1' ? 'time1' : 'time2';
-                                
-                                const session = await Session.findOne({ sessionId });
-                                if (!session || session.winner) {
-                                    return buttonInteraction.reply({
-                                        content: 'Sessão não encontrada ou já finalizada.',
-                                        ephemeral: true
-                                    });
-                                }
-
-                                const winningPlayers = winnerTeam === 'time1' ? team1 : team2;
-                                const losingPlayers = winnerTeam === 'time1' ? team2 : team1;
-
-                                for (const player of winningPlayers) {
-                                    try {
-                                        const playerId = player.id || player.name;
-                                        const playerStats = await PlayerStats.findOne({ 
-                                            $or: [
-                                                { playerId: playerId },
-                                                { playerName: player.name }
-                                            ]
-                                        }) || { totalGames: 0, wins: 0 };
-                                        
-                                        await PlayerStats.findOneAndUpdate(
-                                            { $or: [
-                                                { playerId: playerId },
-                                                { playerName: player.name }
-                                            ]},
-                                            {
-                                                playerName: player.name,
-                                                playerId: playerId,
-                                                $inc: { totalGames: 1, wins: 1 },
-                                                $set: { winPercentage: ((playerStats.wins + 1) / (playerStats.totalGames + 1)) * 100 }
-                                            },
-                                            { upsert: true, new: true }
-                                        );
-                                    } catch (error) {
-                                        logger.error('Erro ao atualizar estatísticas do vencedor:', { 
-                                            player: player.name, 
-                                            error: error.message 
-                                        });
-                                    }
-                                }
-
-                                for (const player of losingPlayers) {
-                                    try {
-                                        const playerId = player.id || player.name;
-                                        const playerStats = await PlayerStats.findOne({ 
-                                            $or: [
-                                                { playerId: playerId },
-                                                { playerName: player.name }
-                                            ]
-                                        }) || { totalGames: 0, losses: 0 };
-
-                                        await PlayerStats.findOneAndUpdate(
-                                            { $or: [
-                                                { playerId: playerId },
-                                                { playerName: player.name }
-                                            ]},
-                                            {
-                                                playerName: player.name,
-                                                playerId: playerId,
-                                                $inc: { totalGames: 1, losses: 1 },
-                                                $set: { winPercentage: (playerStats.wins || 0) / (playerStats.totalGames + 1) * 100 }
-                                            },
-                                            { upsert: true, new: true }
-                                        );
-                                    } catch (error) {
-                                        logger.error('Erro ao atualizar estatísticas do perdedor:', { 
-                                            player: player.name, 
-                                            error: error.message 
-                                        });
-                                    }
-                                }
-
-                                session.winner = winnerTeam;
-                                session.status = 'completed';
-                                await session.save();
-
-                                const updatedEmbed = teamEmbed.setDescription(`🎉 Vencedor: ${winnerTeam === 'time1' ? 'Time 1' : 'Time 2'}`);
-                                await buttonInteraction.update({ 
-                                    embeds: [updatedEmbed],
-                                    components: [] 
-                                });
-
-                                winnerCollector.stop();
-                            } catch (error) {
-                                logger.error('Erro ao registrar vencedor:', { sessionId, error: error.message });
-                                await buttonInteraction.reply({
-                                    content: 'Erro ao processar o resultado.',
-                                    ephemeral: true
-                                });
                             }
-                        });
+                        }
+
+                        for (const player of team2) {
+                            const member = interaction.guild.members.cache.get(player.id);
+                            if (member && member.voice.channel) {
+                                try {
+                                    await member.voice.setChannel(channelTeam2);
+                                } catch (error) {
+                                    logger.error('Erro ao mover jogador para o Time 2:', { member: member.displayName, error: error.message });
+                                }
+                            }
+                        }
 
                         const newSession = new Session({
                             sessionId,

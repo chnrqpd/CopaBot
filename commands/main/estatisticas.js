@@ -41,6 +41,9 @@ module.exports = {
                     .sort({ wins: -1, winPercentage: -1 })
                     .limit(10);
 
+                const generalRanking = await PlayerStats.find()
+                    .sort({ wins: -1, winPercentage: -1 });
+
                 if (!topPlayers.length) {
                     return interaction.reply({ 
                         content: 'Nenhuma estatística encontrada ainda.',
@@ -48,19 +51,42 @@ module.exports = {
                     });
                 }
 
-                const embed = new EmbedBuilder()
+                const topEmbed = new EmbedBuilder()
                     .setTitle('Top 10 Jogadores')
                     .setDescription('Ranking baseado no número de vitórias')
                     .setColor('#00ff00');
 
                 topPlayers.forEach((player, index) => {
-                    embed.addFields({
+                    topEmbed.addFields({
                         name: `${index + 1}. ${player.playerName}`, 
                         value: `Vitórias: ${player.wins} | % de Vitória: ${player.winPercentage.toFixed(2)}%`
                     });
                 });
 
-                await interaction.reply({ embeds: [embed] });
+                const generalEmbed = new EmbedBuilder()
+                    .setTitle('Ranking Geral')
+                    .setDescription('Ranking de todos os jogadores ordenado por vitórias e desempate pela % de vitória')
+                    .setColor('#ff9900');
+
+                generalRanking.forEach((player, index) => {
+                    generalEmbed.addFields({
+                        name: `${index + 1}. ${player.playerName}`,
+                        value: `Jogos Totais: ${player.totalGames} | Vitórias: ${player.wins} | Derrotas: ${player.losses}`
+                    });
+
+                    // Discord tem limite de 25 campos por embed, dividir em novos embeds se necessário
+                    if ((index + 1) % 25 === 0) {
+                        interaction.followUp({ embeds: [generalEmbed] });
+                        generalEmbed.setFields([]);
+                    }
+                });
+
+                // Enviar último embed se houver sobras
+                if (generalEmbed.data.fields.length > 0) {
+                    await interaction.reply({ embeds: [topEmbed, generalEmbed] });
+                } else {
+                    await interaction.reply({ embeds: [topEmbed] });
+                }
             }
         } catch (error) {
             logger.error('Erro nas estatísticas:', { erro: error.message });
