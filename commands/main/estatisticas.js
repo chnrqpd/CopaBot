@@ -65,7 +65,7 @@ module.exports = {
 
                 const generalEmbed = new EmbedBuilder()
                     .setTitle('Ranking Geral')
-                    .setDescription('Ranking de todos os jogadores ordenado por vitórias e desempate pelo % de vitória')
+                    .setDescription('Ranking de todos os jogadores ordenado por vitórias e desempate pela % de vitória')
                     .setColor('#ff9900');
 
                 generalRanking.forEach((player, index) => {
