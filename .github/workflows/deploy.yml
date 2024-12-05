@@ -30,7 +30,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+       
+      - name: Prepare repository name
+        run: |
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          
       # Constrói e publica a imagem Docker
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
