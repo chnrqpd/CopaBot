@@ -38,7 +38,7 @@ module.exports = {
                 return interaction.reply({ embeds: [embed] });
             } else {
                 const topPlayers = await PlayerStats.find()
-                    .sort({ wins: -1 })
+                    .sort({ wins: -1, winPercentage: -1 })
                     .limit(10);
 
                 if (!topPlayers.length) {
@@ -63,10 +63,7 @@ module.exports = {
                 await interaction.reply({ embeds: [embed] });
             }
         } catch (error) {
-            logger.error('Erro nas estatísticas:', { 
-                jogador: mentionable?.user?.id,
-                erro: error.message 
-            });
+            logger.error('Erro nas estatísticas:', { erro: error.message });
             await interaction.reply({ 
                 content: 'Erro ao buscar estatísticas.',
                 ephemeral: true 

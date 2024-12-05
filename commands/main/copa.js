@@ -200,14 +200,14 @@ module.exports = {
 
                         const winnerCollector = teamMessage.createMessageComponentCollector({
                             filter: i => i.customId.startsWith('winner_'),
-                            time: 0 // Sem limite de tempo
+                            time: 0
                         });
 
                         winnerCollector.on('collect', async (buttonInteraction) => {
                             try {
-                                if (!buttonInteraction.member.permissions.has('MANAGE_MESSAGES')) {
+                                if (!buttonInteraction.member.permissions.has('Administrator')) {
                                     return buttonInteraction.reply({
-                                        content: 'Você não tem permissão para declarar o vencedor.',
+                                        content: 'Apenas administradores podem confirmar o vencedor.',
                                         ephemeral: true
                                     });
                                 }
@@ -225,7 +225,6 @@ module.exports = {
                                 const winningPlayers = winnerTeam === 'time1' ? team1 : team2;
                                 const losingPlayers = winnerTeam === 'time1' ? team2 : team1;
 
-                                // Atualiza estatísticas dos jogadores vencedores
                                 for (const player of winningPlayers) {
                                     try {
                                         const playerId = player.id || player.name;
@@ -257,7 +256,6 @@ module.exports = {
                                     }
                                 }
 
-                                // Atualiza estatísticas dos jogadores perdedores
                                 for (const player of losingPlayers) {
                                     try {
                                         const playerId = player.id || player.name;
